@@ -4,17 +4,16 @@ use std::{ffi::c_int, net::{Ipv4Addr, Ipv6Addr}};
 
 use crate::{be16, be32};
 
-// This is not portable.
-pub type sa_family_t = u16;
-pub type socklen_t = u32;
+pub type sa_family_t = u16; // Not portable.
+pub type socklen_t   = u32; // Not portable.
 
-pub const AF_INET: c_int   =  2;
+pub const AF_INET:  c_int  =  2;
 pub const AF_INET6: c_int  = 10;
 
 pub const SOCK_DGRAM: c_int = 2;  // Doesn't require CAP_NET_RAW/root
-pub const SOCK_RAW: c_int   = 3;  // Requires CAP_NET_RAW/root
+pub const SOCK_RAW:   c_int = 3;  // Requires CAP_NET_RAW/root
 
-pub const IPPROTO_ICMP: c_int    = 1;
+pub const IPPROTO_ICMP:   c_int =  1;
 pub const IPPROTO_ICMPV6: c_int = 58;
 
 pub const IPV6_FLOWINFO_DEFAULT: u32 = 0;

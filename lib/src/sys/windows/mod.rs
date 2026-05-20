@@ -17,17 +17,6 @@ unsafe extern "system" {
 
     pub unsafe fn Icmp6CreateFile() -> isize;
 
-    // pub unsafe fn IcmpSendEcho(
-    //     IcmpHandle: isize,
-    //     DestinationAddress: be32,
-    //     RequestData: *const u8,
-    //     RequestSize: u16,
-    //     RequestOptions: *mut ip_option_information, // optional
-    //     ReplyBuffer: *mut u8,
-    //     ReplySize: u32,
-    //     Timeout: u32,
-    // ) -> u32;
-
     pub unsafe fn IcmpSendEcho2(
         IcmpHandle: isize,                 // required
         Event: isize,                      // optional

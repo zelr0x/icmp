@@ -42,18 +42,3 @@ pub struct icmpv6_echo_reply {
     pub Data: *const c_void,
     pub Options: ip_option_information,
 }
-
-// #[repr(C)]
-// #[derive(Debug, Clone, Copy)]
-// pub struct _IPV6_ADDRESS_EX {
-//     sin6_port: u16,
-//     sin6_flowinfo: u32,
-//     sin6_addr: [u16; 8],
-//     sin6_scope_id: u32,
-// }
-
-// impl From<_IPV6_ADDRESS_EX> for Ipv6Addr {
-//     fn from(value: _IPV6_ADDRESS_EX) -> Self {
-//         Ipv6Addr::from_segments(value.sin6_addr)
-//     }
-// }

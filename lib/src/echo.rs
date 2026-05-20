@@ -49,7 +49,7 @@ pub struct EchoReply {
 
 #[derive(Debug)]
 pub enum EchoError {
-    NetApiErr(io::Error), // FIXME: GetLastError()
+    NetApiErr(io::Error),
     IcmpErr,
 }
 
@@ -112,8 +112,6 @@ impl<'a> EchoSession<'a> {
         Ok(res)
     }
 
-    // Sends a burst of `count` ICMP echo messages and calls handle on the results.
-    // Either returns an error or calls handle exactly count times.
     pub fn echo(&mut self) -> EchoResult {
         // TODO: FIXME: this is a unicast-only implementation.
         // reply_buf can contain more than one reply when used with multicast,
@@ -230,20 +228,18 @@ impl<'a> EchoSession<'a> {
 
         let request_data = req.data;
         let request_size = request_data.len();
-        // TODO: FIXME: insufficient check, request_size must be even smaller
-        if request_size as u16 > u16::MAX {
+        if request_size > u16::MAX as usize - ICMPHDR_SIZE {
             return Err(Error::RequestDataTooBig);
         }
         let request_size = request_size as u16;
+        let reply_size = ICMPHDR_SIZE as u32 + request_size as u32 + 1024;
+        let reply_buf = vec![0u8; reply_size as usize];
 
         let ver = req.addr.into();
         let sockfd = unix::icmp_dgram_socket(ver);
         if sockfd == -1 {
             return Err(Error::SocketOpenFailed(io::Error::last_os_error()));
         }
-
-        // TODO: FIXME: hardcoded reply buffer size
-        let reply_buf = vec![0u8; 2048];
 
         let res = Self {
             addr: req.addr.into(),
@@ -282,9 +278,7 @@ impl<'a> EchoSession<'a> {
                 });
                 packet.extend_from_slice(self.request_data);
 
-                // Compute checksum
                 hdr.checksum = unix::sum16::new(&packet);
-                // Update header with checksum
                 packet[..ICMPHDR_SIZE].copy_from_slice(unsafe {
                     std::slice::from_raw_parts(&hdr as *const icmphdr as *const u8, ICMPHDR_SIZE)
                 });
