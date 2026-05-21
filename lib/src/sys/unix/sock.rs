@@ -4,8 +4,20 @@ use std::{ffi::c_int, net::{Ipv4Addr, Ipv6Addr}};
 
 use crate::{be16, be32};
 
-pub type sa_family_t = u16; // Not portable.
-pub type socklen_t   = u32; // Not portable.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub type sa_family_t = u16;
+
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "openbsd",
+    target_os = "netbsd",
+    target_os = "dragonfly",
+    target_os = "macos",
+    target_os = "ios",
+))]
+pub type sa_family_t = u8;
+
+pub type socklen_t   = u32;
 
 pub const AF_INET:  c_int  =  2;
 pub const AF_INET6: c_int  = 10;
@@ -49,6 +61,16 @@ impl From<in_addr> for be32 {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct sockaddr {
+    #[cfg(any(
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly",
+        target_os = "macos",
+        target_os = "ios",
+    ))]
+    sa_len: u8,
+
     sa_family: sa_family_t,
     sa_data: [u8; 14],
 }
@@ -56,6 +78,16 @@ pub struct sockaddr {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct sockaddr_in {
+    #[cfg(any(
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly",
+        target_os = "macos",
+        target_os = "ios",
+    ))]
+    sin_len: u8,
+
     // AF_INET
     pub sin_family: sa_family_t,
     pub sin_port: be16,
@@ -66,6 +98,16 @@ pub struct sockaddr_in {
 impl sockaddr_in {
     pub fn new(addr: impl Into<in_addr>) -> Self {
         Self {
+            #[cfg(any(
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd",
+                target_os = "dragonfly",
+                target_os = "macos",
+                target_os = "ios",
+            ))]
+            sin_len: size_of::<sockaddr_in>() as u8,
+
             sin_family: AF_INET as sa_family_t,
             sin_addr: addr.into().into(),
             sin_port: 0,
@@ -98,6 +140,15 @@ impl From<in6_addr> for Ipv6Addr {
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub struct sockaddr_in6 {
+    #[cfg(any(
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "dragonfly",
+        target_os = "macos",
+        target_os = "ios",
+    ))]
+    sin6_len: u8,
     // AF_INET6
     pub sin6_family: sa_family_t,
     pub sin6_port: be16,
@@ -115,6 +166,16 @@ impl sockaddr_in6 {
 
     pub fn new_ext(addr: impl Into<in6_addr>, port: u16, flow_info: u32, scope_id: u32) -> Self {
         Self {
+            #[cfg(any(
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "netbsd",
+                target_os = "dragonfly",
+                target_os = "macos",
+                target_os = "ios",
+            ))]
+            sin6_len: size_of::<sockaddr_in6>() as u8,
+
             sin6_family: AF_INET6  as sa_family_t,
             sin6_addr: addr.into(),
             sin6_port: port.to_be(),

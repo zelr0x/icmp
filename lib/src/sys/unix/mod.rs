@@ -5,7 +5,7 @@ pub(crate) mod sock;
 
 use crate::{
     IpVer,
-    sys::unix::sock::{AF_INET, AF_INET6, IPPROTO_ICMP, SOCK_DGRAM, socket},
+    sys::unix::sock::{AF_INET, AF_INET6, IPPROTO_ICMP, SOCK_DGRAM, socket}
 };
 
 #[repr(transparent)]
@@ -13,6 +13,7 @@ use crate::{
 pub(crate) struct sum16(u16);
 
 impl sum16 {
+    // TODO: verify algorithm.
     pub fn new(buf: &[u8]) -> Self {
         let mut sum: u32 = 0;
         let mut i = 0;
@@ -36,5 +37,7 @@ pub fn icmp_dgram_socket(ver: IpVer) -> i32 {
         IpVer::V4 => AF_INET,
         IpVer::V6 => AF_INET6,
     };
-    unsafe { socket(domain, SOCK_DGRAM, IPPROTO_ICMP) }
+    unsafe {
+        socket(domain, SOCK_DGRAM, IPPROTO_ICMP)
+    }
 }
