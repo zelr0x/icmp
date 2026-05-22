@@ -23,11 +23,18 @@ pub enum Host {
     Hostname(String),
 }
 
+// TODO: better errors
 #[derive(Debug)]
 pub enum Error {
     HostnameResolutionFailed,
-    SocketOpenFailed(io::Error),
+    IoErr(io::Error),
     RequestDataTooBig,
+}
+
+impl From<io::Error> for Error {
+    fn from(value: io::Error) -> Self {
+        Self::IoErr(value)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

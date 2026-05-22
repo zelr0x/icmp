@@ -12,7 +12,7 @@ use std::ffi::c_void;
 
 #[cfg(windows)]
 use crate::sys::windows::{
-    self,
+    self, IcmpHandle,
     apc::io_apc_routine,
     ip::{
         ICMP_ECHO_REPLY_SIZE, ICMP6_ECHO_REPLY_SIZE, icmp_echo_reply, icmpv6_echo_reply,
@@ -26,9 +26,10 @@ use std::time::Instant;
 
 #[cfg(unix)]
 use crate::sys::unix::{
-    self,
+    self, IcmpSocket,
     icmp::{Echo, ICMPHDR_SIZE, Un, icmp_type, icmphdr},
-    sock::{recvfrom, sendto, sockaddr, sockaddr_in, socklen_t},
+    recvfrom, sendto,
+    sock::{sockaddr, sockaddr_in, socklen_t},
     sum16,
 };
 
@@ -49,8 +50,14 @@ pub struct EchoReply {
 
 #[derive(Debug)]
 pub enum EchoError {
-    NetApiErr(io::Error),
+    IoErr(io::Error),
     IcmpErr,
+}
+
+impl From<io::Error> for EchoError {
+    fn from(value: io::Error) -> Self {
+        Self::IoErr(value)
+    }
 }
 
 pub type EchoResult = Result<EchoReply, EchoError>;
@@ -61,7 +68,7 @@ pub struct EchoSession<'a> {
     addr: IpAddr,
     request_data: &'a [u8],
     request_size: u16,
-    handle: isize,
+    handle: IcmpHandle,
     event: isize,
     apc_routine: *const io_apc_routine,
     apc_context: *const c_void,
@@ -86,7 +93,7 @@ impl<'a> EchoSession<'a> {
         let reply_buf = vec![0u8; reply_size as usize];
 
         let ver = req.addr.into();
-        let handle = windows::icmp_handle(ver);
+        let handle = IcmpHandle::create(ver)?;
 
         let event = 0;
         let apc_routine = std::ptr::null();
@@ -119,6 +126,7 @@ impl<'a> EchoSession<'a> {
 
         // TODO: Make request_data a parameter?
 
+        let handle = self.handle.as_raw();
         let request_data = self.request_data.as_ptr();
         let off = Self::get_icmp_echo_reply_size(self.addr);
         match self.addr {
@@ -127,7 +135,7 @@ impl<'a> EchoSession<'a> {
                 let dest_addr: u32 = dest_addr.into();
                 let got_replies = unsafe {
                     windows::IcmpSendEcho2(
-                        self.handle,
+                        handle,
                         self.event,
                         self.apc_routine,
                         self.apc_context,
@@ -142,7 +150,7 @@ impl<'a> EchoSession<'a> {
                 };
                 // TODO: add ERROR_IO_PENDING const and check it for async variant
                 if got_replies == 0 {
-                    return Err(EchoError::NetApiErr(io::Error::last_os_error()));
+                    return Err(EchoError::IoErr(io::Error::last_os_error()));
                 }
                 // TODO: ensure read_analigned is the way to go or &* is enough
                 let reply = unsafe {
@@ -165,7 +173,7 @@ impl<'a> EchoSession<'a> {
                 let dest_addr: *const sockaddr_in6 = &sockaddr_in6::new(addr);
                 let got_replies = unsafe {
                     windows::Icmp6SendEcho2(
-                        self.handle,
+                        handle,
                         self.event,
                         self.apc_routine,
                         self.apc_context,
@@ -216,7 +224,7 @@ pub struct EchoSession<'a> {
     echo: Echo,
     request_data: &'a [u8],
     request_size: u16,
-    sockfd: i32,
+    sock: IcmpSocket,
     reply_buf: Vec<u8>,
 }
 
@@ -236,14 +244,11 @@ impl<'a> EchoSession<'a> {
         let reply_buf = vec![0u8; reply_size as usize];
 
         let ver = req.addr.into();
-        let sockfd = unix::icmp_dgram_socket(ver);
-        if sockfd == -1 {
-            return Err(Error::SocketOpenFailed(io::Error::last_os_error()));
-        }
+        let sock = IcmpSocket::open(ver)?;
 
         let res = Self {
             addr: req.addr.into(),
-            sockfd,
+            sock,
             request_data,
             request_size,
             reply_buf: reply_buf,
@@ -253,6 +258,7 @@ impl<'a> EchoSession<'a> {
     }
 
     pub fn echo(&mut self) -> EchoResult {
+        let sockfd = self.sock.as_raw();
         match self.addr {
             IpAddr::V4(addr) => {
                 // TODO: Either move icmphdr and packet to session or leave here
@@ -287,7 +293,7 @@ impl<'a> EchoSession<'a> {
                 let start = Instant::now();
                 let ret = unsafe {
                     sendto(
-                        self.sockfd,
+                        sockfd,
                         packet.as_ptr() as *const _,
                         packet.len(),
                         0,
@@ -296,14 +302,14 @@ impl<'a> EchoSession<'a> {
                     )
                 };
                 if ret < 0 {
-                    return Err(EchoError::NetApiErr(io::Error::last_os_error()));
+                    return Err(EchoError::IoErr(io::Error::last_os_error()));
                 }
 
                 let mut reply_addr: sockaddr_in = sockaddr_in::default();
                 let mut reply_addr_len = size_of::<sockaddr_in>() as socklen_t;
                 let n = unsafe {
                     recvfrom(
-                        self.sockfd,
+                        sockfd,
                         self.reply_buf.as_mut_ptr() as *mut _,
                         self.reply_buf.len(),
                         0,
@@ -312,7 +318,7 @@ impl<'a> EchoSession<'a> {
                     )
                 };
                 if n < 0 {
-                    return Err(EchoError::NetApiErr(io::Error::last_os_error()));
+                    return Err(EchoError::IoErr(io::Error::last_os_error()));
                 }
                 let end = Instant::now();
                 let rtt = end.duration_since(start);

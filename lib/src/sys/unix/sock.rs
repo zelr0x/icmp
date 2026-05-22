@@ -184,25 +184,3 @@ impl sockaddr_in6 {
         }
     }
 }
-
-#[link(name = "c")]
-unsafe extern "C" {
-    pub unsafe fn socket(domain: c_int, socket_type: c_int, protocol: c_int) -> c_int;
-
-    pub unsafe fn sendto(
-        sockfd: c_int,
-        buf: *const u8,
-        len: usize,
-        flags: c_int,
-        dest_addr: *const sockaddr,
-        addrlen: socklen_t,
-    ) -> isize;
-
-    pub unsafe fn recvfrom(
-        sockfd: c_int,
-        buf: *mut u8,
-        len: usize,
-        flags: c_int,
-        src_addr: *mut sockaddr,
-        addrlen: *mut socklen_t) -> isize;
-}
